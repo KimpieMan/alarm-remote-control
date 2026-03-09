@@ -1,0 +1,499 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Alarm Systeem Remote Debug - Ngrok</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #1a1a1a 0%, #0d0d0d 100%);
+            color: white;
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: rgba(30, 30, 30, 0.9);
+            border-radius: 15px;
+            padding: 25px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        h1 {
+            text-align: center;
+            margin-bottom: 30px;
+            background: linear-gradient(45deg, #00ccff, #00ff9d);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            font-size: 28px;
+        }
+
+        .setup-section {
+            background: rgba(0, 0, 0, 0.3);
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 25px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .setup-steps {
+            background: rgba(0, 40, 60, 0.5);
+            padding: 15px;
+            border-radius: 8px;
+            margin: 15px 0;
+            font-size: 13px;
+            line-height: 1.6;
+        }
+
+        .setup-steps h3 {
+            color: #00ccff;
+            margin-bottom: 10px;
+        }
+
+        .setup-steps ol {
+            padding-left: 20px;
+        }
+
+        .setup-steps li {
+            margin-bottom: 8px;
+        }
+
+        .connection-section {
+            background: rgba(0, 0, 0, 0.3);
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 25px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .form-group {
+            margin-bottom: 15px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 8px;
+            color: #aaa;
+            font-size: 14px;
+        }
+
+        input[type="text"], input[type="url"] {
+            width: 100%;
+            padding: 12px;
+            border-radius: 8px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            background: rgba(0, 0, 0, 0.3);
+            color: white;
+            font-size: 16px;
+        }
+
+        .example {
+            font-size: 12px;
+            color: #aaa;
+            margin-top: 5px;
+        }
+
+        button {
+            width: 100%;
+            padding: 15px;
+            border-radius: 8px;
+            border: none;
+            background: linear-gradient(45deg, #00ccff, #00ff9d);
+            color: black;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin-top: 10px;
+        }
+
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0, 204, 255, 0.3);
+        }
+
+        button.disconnect {
+            background: linear-gradient(45deg, #ff4444, #ff6666);
+            color: white;
+        }
+
+        button.secondary {
+            background: linear-gradient(45deg, #666666, #888888);
+            color: white;
+        }
+
+        .status-section {
+            background: rgba(0, 0, 0, 0.3);
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 25px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .status-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 12px 0;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .status-item:last-child {
+            border-bottom: none;
+        }
+
+        .status-label {
+            color: #aaa;
+            font-size: 14px;
+        }
+
+        .status-value {
+            font-weight: 600;
+            font-size: 16px;
+        }
+
+        .alarm-armed {
+            color: #ff4444;
+        }
+
+        .alarm-disarmed {
+            color: #00ff9d;
+        }
+
+        .sensor-connected {
+            color: #00ff9d;
+        }
+
+        .sensor-broken {
+            color: #ff4444;
+        }
+
+        .connection-status {
+            text-align: center;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 20px 0;
+            font-weight: 600;
+        }
+
+        .connected {
+            background: rgba(0, 255, 0, 0.2);
+            color: #00ff00;
+            border: 1px solid rgba(0, 255, 0, 0.3);
+        }
+
+        .disconnected {
+            background: rgba(255, 0, 0, 0.2);
+            color: #ff0000;
+            border: 1px solid rgba(255, 0, 0, 0.3);
+        }
+
+        .test-section {
+            background: rgba(0, 0, 0, 0.3);
+            padding: 20px;
+            border-radius: 10px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .test-buttons {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+            margin-top: 15px;
+        }
+
+        .test-btn {
+            padding: 12px;
+            font-size: 14px;
+        }
+
+        .test-trigger {
+            background: linear-gradient(45deg, #ff4444, #ff6666);
+            color: white;
+        }
+
+        .logs {
+            background: rgba(0, 0, 0, 0.3);
+            padding: 20px;
+            border-radius: 10px;
+            margin-top: 25px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            max-height: 200px;
+            overflow-y: auto;
+        }
+
+        .log-entry {
+            font-size: 12px;
+            color: #aaa;
+            margin-bottom: 5px;
+            padding: 5px;
+            border-radius: 3px;
+            background: rgba(255, 255, 255, 0.05);
+        }
+
+        .warning {
+            background: rgba(255, 165, 0, 0.2);
+            color: #ffa500;
+            border: 1px solid rgba(255, 165, 0, 0.3);
+            padding: 10px;
+            border-radius: 5px;
+            margin: 15px 0;
+            font-size: 13px;
+        }
+
+        @media (max-width: 600px) {
+            .container {
+                padding: 15px;
+            }
+            
+            .test-buttons {
+                grid-template-columns: 1fr;
+            }
+            
+            h1 {
+                font-size: 24px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔐 Alarm Systeem Remote Debug - Ngrok</h1>
+        
+        <div class="setup-section">
+            <h2>🚀 Ngrok Setup Instructies</h2>
+            <div class="setup-steps">
+                <h3>Op je Raspberry Pi:</h3>
+                <ol>
+                    <li><strong>Installeer Ngrok:</strong><br>
+                        <code>wget https://bin.equinox.io/c/bNyj1mQuLUz/ngrok-v3-linux-arm.tgz<br>
+                        tar -xvzf ngrok-v3-linux-arm.tgz<br>
+                        sudo mv ngrok /usr/local/bin/</code>
+                    </li>
+                    <li><strong>Maak account op</strong> <a href="https://ngrok.com" target="_blank" style="color: #00ccff;">ngrok.com</a></li>
+                    <li><strong>Kopieer Auth Token</strong> van je dashboard</li>
+                    <li><strong>Configureer Ngrok:</strong><br>
+                        <code>ngrok config add-authtoken JOUW_TOKEN_HIER</code>
+                    </li>
+                    <li><strong>Start Ngrok tunnel:</strong><br>
+                        <code>ngrok http 5000</code>
+                    </li>
+                    <li><strong>Kopieer het HTTPS adres</strong> dat ngrok toont</li>
+                </ol>
+            </div>
+        </div>
+
+        <div class="warning">
+            ⚠️ <strong>Belangrijk:</strong> Zorg dat je alarm systeem draait (<code>python3 app.py</code>) voordat je ngrok start!
+        </div>
+
+        <div class="connection-section">
+            <h2>🔗 Verbinding Instellingen</h2>
+            <div class="form-group">
+                <label for="ngrokUrl">Ngrok HTTPS URL</label>
+                <input type="url" id="ngrokUrl" placeholder="https://abcd-123-456-789-012.ngrok.io" value="">
+                <div class="example">Voorbeeld: https://abcd-123-456-789-012.ngrok.io</div>
+            </div>
+            <button id="connectBtn">🔌 Verbinden met Alarm Systeem</button>
+            <button id="disconnectBtn" class="disconnect">🚫 Verbreek Verbinding</button>
+            <button id="testConnectionBtn" class="secondary">🔍 Test HTTP Verbinding</button>
+        </div>
+
+        <div id="connectionStatus" class="connection-status disconnected">
+            Niet verbonden met alarm systeem
+        </div>
+
+        <div class="status-section">
+            <h2>📊 Systeem Status</h2>
+            <div class="status-item">
+                <span class="status-label">Alarm Status:</span>
+                <span id="alarmStatus" class="status-value alarm-disarmed">DISARMED</span>
+            </div>
+            <div class="status-item">
+                <span class="status-label">Sensor Status:</span>
+                <span id="sensorStatus" class="status-value sensor-connected">CONNECTED</span>
+            </div>
+            <div class="status-item">
+                <span class="status-label">Connection:</span>
+                <span id="connectionIndicator" class="status-value">Offline</span>
+            </div>
+        </div>
+
+        <div class="test-section">
+            <h2>🧪 Test Functies</h2>
+            <p style="color: #aaa; font-size: 14px; margin-bottom: 15px;">
+                Gebruik deze functies om het alarm systeem op afstand te testen
+            </p>
+            <div class="test-buttons">
+                <button id="armBtn" class="test-btn">🛡️ Alarm Activeren</button>
+                <button id="disarmBtn" class="test-btn">🔓 Alarm Deactiveren</button>
+            </div>
+        </div>
+
+        <div class="logs">
+            <h3>📋 Debug Logs</h3>
+            <div id="logContainer"></div>
+        </div>
+    </div>
+
+    <script>
+        let socket = null;
+        let baseUrl = '';
+
+        // DOM Elements
+        const connectBtn = document.getElementById('connectBtn');
+        const disconnectBtn = document.getElementById('disconnectBtn');
+        const testConnectionBtn = document.getElementById('testConnectionBtn');
+        const ngrokUrl = document.getElementById('ngrokUrl');
+        const connectionStatus = document.getElementById('connectionStatus');
+        const alarmStatus = document.getElementById('alarmStatus');
+        const sensorStatus = document.getElementById('sensorStatus');
+        const connectionIndicator = document.getElementById('connectionIndicator');
+        const armBtn = document.getElementById('armBtn');
+        const disarmBtn = document.getElementById('disarmBtn');
+        const logContainer = document.getElementById('logContainer');
+
+        // Add log entry
+        function addLog(message) {
+            const timestamp = new Date().toLocaleTimeString();
+            const logEntry = document.createElement('div');
+            logEntry.className = 'log-entry';
+            logEntry.innerHTML = `[${timestamp}] ${message}`;
+            logContainer.prepend(logEntry);
+            
+            // Keep only last 50 entries
+            if (logContainer.children.length > 50) {
+                logContainer.removeChild(logContainer.lastChild);
+            }
+        }
+
+        // Test HTTP connection
+        testConnectionBtn.addEventListener('click', async () => {
+            const url = ngrokUrl.value.trim();
+            if (!url) {
+                addLog('❌ Voer eerst een Ngrok URL in');
+                return;
+            }
+
+            try {
+                addLog(`🔍 Testen HTTP verbinding naar ${url}...`);
+                const response = await fetch(`${url}/`, {
+                    method: 'GET',
+                    mode: 'no-cors'
+                });
+                addLog('✅ HTTP verbinding succesvol (CORS beperking - normaal gedrag)');
+            } catch (error) {
+                addLog(`❌ HTTP test mislukt: ${error.message}`);
+            }
+        });
+
+        // Connect to alarm system via Ngrok
+        connectBtn.addEventListener('click', () => {
+            const url = ngrokUrl.value.trim();
+            if (!url) {
+                addLog('❌ Voer een Ngrok URL in');
+                return;
+            }
+
+            baseUrl = url.replace(/\/$/, ''); // Remove trailing slash
+            addLog(`🔌 Verbinding maken met ${baseUrl}...`);
+            
+            try {
+                // Socket.IO connection
+                socket = io(baseUrl, {
+                    transports: ['websocket'],
+                    timeout: 10000,
+                    reconnection: true,
+                    reconnectionAttempts: 5
+                });
+
+                socket.on('connect', () => {
+                    connectionStatus.className = 'connection-status connected';
+                    connectionStatus.textContent = `✅ Verbonden met ${baseUrl}`;
+                    connectionIndicator.textContent = 'Online';
+                    connectionIndicator.style.color = '#00ff9d';
+                    addLog('🎉 Succesvol verbonden via WebSocket!');
+                });
+
+                socket.on('disconnect', (reason) => {
+                    connectionStatus.className = 'connection-status disconnected';
+                    connectionStatus.textContent = `⚠️ Verbinding verbroken (${reason})`;
+                    connectionIndicator.textContent = 'Offline';
+                    connectionIndicator.style.color = '#ff4444';
+                    addLog(`❌ Verbinding verbroken: ${reason}`);
+                });
+
+                socket.on('connect_error', (error) => {
+                    addLog(`❌ WebSocket verbindingsfout: ${error.message}`);
+                });
+
+                socket.on('alarm_update', (data) => {
+                    alarmStatus.textContent = data.alarm ? 'ARMED' : 'DISARMED';
+                    alarmStatus.className = data.alarm ? 'status-value alarm-armed' : 'status-value alarm-disarmed';
+                    addLog(`🔄 Alarm status: ${data.alarm ? 'ARMED' : 'DISARMED'}`);
+                });
+
+                socket.on('sensor_update', (data) => {
+                    sensorStatus.textContent = data.contact ? 'CONNECTED' : 'BROKEN';
+                    sensorStatus.className = data.contact ? 'status-value sensor-connected' : 'status-value sensor-broken';
+                    addLog(`🔄 Sensor status: ${data.contact ? 'CONNECTED' : 'BROKEN'}`);
+                });
+
+            } catch (error) {
+                addLog(`❌ Fout bij verbindingspoging: ${error.message}`);
+            }
+        });
+
+        // Disconnect from alarm system
+        disconnectBtn.addEventListener('click', () => {
+            if (socket) {
+                socket.disconnect();
+                addLog('🔌 Verbinding handmatig verbroken');
+            }
+        });
+
+        // Toggle alarm (arm/disarm)
+        function toggleAlarm() {
+            if (socket && socket.connected) {
+                fetch(`${baseUrl}/toggle_alarm`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                })
+                .then(response => {
+                    if (response.ok) {
+                        addLog(`${this.id === 'armBtn' ? '🛡️' : '🔓'} Alarm toggle opdracht verzonden`);
+                    } else {
+                        addLog(`❌ Fout bij toggle: ${response.status}`);
+                    }
+                })
+                .catch(error => {
+                    addLog(`❌ Netwerkfout bij toggle: ${error.message}`);
+                });
+            } else {
+                addLog('❌ Niet verbonden met alarm systeem');
+            }
+        }
+
+        // Event listeners for alarm buttons
+        armBtn.addEventListener('click', toggleAlarm);
+        disarmBtn.addEventListener('click', toggleAlarm);
+
+        // Initialize
+        addLog('システム gereed. Voer Ngrok URL in en klik op "Verbinden"');
+        addLog('💡 Tip: Gebruik "Test HTTP Verbinding" om eerst te controleren of de URL bereikbaar is');
+    </script>
+</body>
+</html>
